@@ -261,7 +261,7 @@
 				}
 			},
 			{
-				"name": "Set variable1",
+				"name": "Set variab",
 				"type": "SetVariable",
 				"dependsOn": [
 					{
@@ -289,7 +289,7 @@
 				"type": "SetVariable",
 				"dependsOn": [
 					{
-						"activity": "Set variable1",
+						"activity": "Set variab",
 						"dependencyConditions": [
 							"Succeeded"
 						]
