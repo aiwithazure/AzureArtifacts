@@ -43,7 +43,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Set variable2",
+						"activity": "main process time",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -63,7 +63,7 @@
 							"type": "ExecutePipeline",
 							"dependsOn": [
 								{
-									"activity": "sp target",
+									"activity": "sub procee start time",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -94,6 +94,26 @@
 									},
 									"target_table": {
 										"value": "@concat('stg_',variables('target_table'))",
+										"type": "Expression"
+									},
+									"main_process_id": {
+										"value": "@variables('main_process_id')",
+										"type": "Expression"
+									},
+									"sub_process_id": {
+										"value": "@variables('sub_process_id')",
+										"type": "Expression"
+									},
+									"sub_process_start_time": {
+										"value": "@variables('sub_process_start_time')",
+										"type": "Expression"
+									},
+									"watermark_start_val": {
+										"value": "@variables('watermark_start_val')",
+										"type": "Expression"
+									},
+									"watermark_col_name": {
+										"value": "@variables('watermark_col_name')",
 										"type": "Expression"
 									}
 								}
@@ -169,7 +189,7 @@
 							"type": "SetVariable",
 							"dependsOn": [
 								{
-									"activity": "target_schema",
+									"activity": "Set variable2",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -256,12 +276,108 @@
 									"type": "Expression"
 								}
 							}
+						},
+						{
+							"name": "Set variable1",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "sp target",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "sub_process_id",
+								"value": {
+									"value": "@guid()",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "sub procee start time",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Set variable1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "sub_process_start_time",
+								"value": {
+									"value": "@formatDateTime(utcnow(),'yyyy-MM-dd')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set variable2",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "water mark col name",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "watermark_start_val",
+								"value": {
+									"value": "@item().WATERMARK_VALUE",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "water mark col name",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "target_schema",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "watermark_col_name",
+								"value": {
+									"value": "@item().WATERMARK_COLUMN",
+									"type": "Expression"
+								}
+							}
 						}
 					]
 				}
 			},
 			{
-				"name": "Set variab",
+				"name": "main_process_id",
 				"type": "SetVariable",
 				"dependsOn": [
 					{
@@ -285,11 +401,11 @@
 				}
 			},
 			{
-				"name": "Set variable2",
+				"name": "main process time",
 				"type": "SetVariable",
 				"dependsOn": [
 					{
-						"activity": "Set variab",
+						"activity": "main_process_id",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -306,6 +422,46 @@
 						"value": "@utcnow()",
 						"type": "Expression"
 					}
+				}
+			},
+			{
+				"name": "Lookup2",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "ForEach1",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT * FROM ',variables('source_schema'),'.',variables('source_table'),' where main_process_id= ',variables('main_process_id'),' and sub_process_result=''''FAILED''''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "db_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "REPORTING",
+							"table": "abc"
+						}
+					},
+					"firstRowOnly": false
 				}
 			}
 		],
@@ -347,13 +503,19 @@
 			},
 			"sub_process_end_time": {
 				"type": "String"
+			},
+			"watermark_start_val": {
+				"type": "String"
+			},
+			"watermark_col_name": {
+				"type": "String"
 			}
 		},
 		"folder": {
 			"name": "ADF IF"
 		},
 		"annotations": [],
-		"lastPublishTime": "2025-12-22T04:21:20Z"
+		"lastPublishTime": "2025-12-23T04:23:38Z"
 	},
 	"type": "Microsoft.DataFactory/factories/pipelines"
 }
